@@ -4,11 +4,6 @@ const QueryString = window.location.search;
 const urlParams = new URLSearchParams(QueryString); 
 url = urlParams.get('file');
 
-// Necessary for camera/plane rotation
-// var degree = Math.PI/180;
-// var  cameraTarget ,container;
-
-
 container = document.createElement( 'div' );
 document.body.appendChild( container );
 
@@ -22,7 +17,6 @@ var camera = new THREE.PerspectiveCamera(
 	2000
 );
 
-// camera.position.set( 3, 0.15, 3 );
 cameraTarget = new THREE.Vector3( 0, 0, 0 );
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
@@ -56,7 +50,6 @@ switch(extension) {
         var stlLoader = new THREE.STLLoader();
         stlLoader.load( url, function ( geometry ) {
             var mesh = new THREE.Mesh( geometry, absMaterial);
-            mesh.position.set( 0, 0, 0 );
             scene.add( mesh );
             mesh.castShadow = true;
             mesh.receiveShadow = true;
@@ -74,6 +67,7 @@ switch(extension) {
     case 'glb':
     case 'gltf':
         var dracoLoader = new THREE.DRACOLoader();
+        dracoLoader.setDecoderPath('/lib/js/draco/')
         var gltfLoader = new THREE.GLTFLoader();
         gltfLoader.setDRACOLoader( dracoLoader );
 		gltfLoader.load( url, function (gltf) {
@@ -141,8 +135,7 @@ function getBoxSize(object){
 
 // Set background color, verify size of object, set camera position, ambient light and insert axes in the scene 
 function setCamera(objectSize){
-    // scene.background = new THREE.Color(0xfffff0);
-    scene.background = new THREE.Color(0x000000);
+    scene.background = new THREE.Color(0xfffff0);
     camera.lookAt(new THREE.Vector3(0,0,0));
     let x,y,z;
 
@@ -179,7 +172,7 @@ camera.updateProjectionMatrix();
 renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
-function addShadowedLight( x, y, z, color, intensity ) {``
+function addShadowedLight( x, y, z, color, intensity ) {
     var directionalLight = new THREE.DirectionalLight( color, intensity );
 	directionalLight.position.set( x, y, z );
     scene.add( directionalLight );
