@@ -1,4 +1,3 @@
-import('https://threejs.org/examples/jsm/loaders/OBJLoader.js');
 $(document).ready(function () {
 
 const QueryString = window.location.search; 
@@ -6,8 +5,8 @@ const urlParams = new URLSearchParams(QueryString);
 url = urlParams.get('file');
 
 // Necessary for camera/plane rotation
-var degree = Math.PI/180;
-var  cameraTarget ,container;
+// var degree = Math.PI/180;
+// var  cameraTarget ,container;
 
 
 container = document.createElement( 'div' );
@@ -16,214 +15,194 @@ document.body.appendChild( container );
 // Setup
 var scene = new THREE.Scene();
 
-var camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 1000);
-camera.position.set( 3, 0.15, 3 );
-cameraTarget = new THREE.Vector3( 0, - 0.25, 0 );
+var camera = new THREE.PerspectiveCamera(
+	50, 
+	window.innerWidth / window.innerHeight, 
+	0.1, 
+	2000
+);
 
+// camera.position.set( 3, 0.15, 3 );
+cameraTarget = new THREE.Vector3( 0, 0, 0 );
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.shadowMap.enabled = true;
 renderer.setPixelRatio(window.devicePixelRatio); 
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
-
-//document.body.appendChild(renderer.domElement);
-
-renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
 container.appendChild( renderer.domElement );
 
-
-scene.background = new THREE.Color( 0x72645b );
-
-// Resize after viewport-size-change
-
-
-
-window.addEventListener( 'resize', onWindowResize, false );
-
-
+//resize view as user change windows size
+window.addEventListener('resize', onWindowResize, false)
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight
+    camera.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.render(scene, camera)
+}
 
 // Adding controls
-controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-
-  
-// Ground (comment out line: "scene.add( plane );" if Ground is not needed...)
-var plane = new THREE.Mesh(
-    new THREE.PlaneBufferGeometry(150, 150),
-    new THREE.MeshPhongMaterial( { color: 0x999999, specular: 0x101010 } )
-);
-
-plane.rotation.x = - Math.PI / 2;
-plane.position.y = - 4;
-scene.add( plane );
+const controls = new THREE.OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+controls.target.set(0, 0, 0)
 
 var extension = url.split( '.' ).pop().toLowerCase();
+var boxSize = new Array()
+const absMaterial = new THREE.MeshNormalMaterial
 
 switch(extension) {
     case 'stl':
-        var loader = new THREE.STLLoader();
-
-        loader.load( url, function ( geometry ) {
-            var material = getMaterial('phong', 0xff5533, 0x111111, 200);
-            var mesh = new THREE.Mesh( geometry, material );
-            mesh.position.set( 0, - 0.25, 0.6 );
-            mesh.rotation.set( - Math.PI / 2, 0, 0 );
-            mesh.scale.set( 0.5, 0.5, 0.5 );
+        var stlLoader = new THREE.STLLoader();
+        stlLoader.load( url, function ( geometry ) {
+            var mesh = new THREE.Mesh( geometry, absMaterial);
+            mesh.position.set( 0, 0, 0 );
             scene.add( mesh );
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-        } );
+			boxSize = getBoxSize(mesh);
+            setCamera(boxSize);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
+        });
         break;
 
     case 'glb':
     case 'gltf':
-        renderer.outputEncoding = THREE.sRGBEncoding;
         var dracoLoader = new THREE.DRACOLoader();
-        dracoLoader.setDecoderPath('./lib/draco/gltf/');
-
-        var loader = new THREE.GLTFLoader();
-
-        loader.setDRACOLoader( dracoLoader );
-		loader.load( url, function ( gltf ) {
-
+        var gltfLoader = new THREE.GLTFLoader();
+        gltfLoader.setDRACOLoader( dracoLoader );
+		gltfLoader.load( url, function (gltf) {
 			scene.add( gltf.scene );
-
-		} );
+		    boxSize = getBoxSize(gltf.scene);
+            setCamera(boxSize);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
+        } );
         break;
 
     case 'fbx':
-       var loader = new THREE.FBXLoader( );
-       loader.load( url, function ( fbx ) {
-          scene.add(fbx);
+       var fbxLoader = new THREE.FBXLoader( );
+       fbxLoader.load( url, function ( fbx ) {
+            scene.add(fbx);
+		    boxSize = getBoxSize(fbx);
+		    setCamera(boxSize);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
         } ); 
         break;
 
     case 'obj':
-        var loader = new THREE.OBJLoader( );
-        loader.load( url, function ( object ) {
+        var objLoader = new THREE.OBJLoader( );
+        objLoader.load( url, function (object) {
             scene.add( object );
+            boxSize = getBoxSize(object);
+            setCamera(boxSize);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
         } );
         break;
 
     default:
-        alert("Unsupported file type "+extension);
+        alert("Unsupported file type " + extension);
 }
-
-
-
-
-// Camera positioning
-camera.position.z = 120;
-camera.position.y = 120;
-camera.rotation.x = -45 * degree;
-
-// Ambient light (necessary for Phong/Lambert-materials, not for Basic)
-//var ambientLight = new THREE.AmbientLight( 0x00ff00, 1);  // model color
-//scene.add(ambientLight);
 
 // Add lights
 var hemiLight = new THREE.HemisphereLight( 0x443333, 0x111122, 0.61 );
 hemiLight.position.set( 0, 50, 0 );
+
 // Add hemisphere light to scene   
 scene.add( hemiLight );
+addShadowedLight( 1, -1, 1, 0xffaa00, 1.35 );
+addShadowedLight( 1, 1, - 1, 0xffaa00, 1 );
 
+function getBoxSize(object){
+    let boundingBox = new THREE.Box3().setFromObject( object );
+    let boxSize = new THREE.Vector3();
+    boundingBox.getSize(boxSize);
+    return [Math.round(boxSize.x),Math.round(boxSize.y),Math.round(boxSize.z)];
+}
 
-addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
-addShadowedLight( 0.5, 1, - 1, 0xffaa00, 1 );
+// Set background color, verify size of object, set camera position, ambient light and insert axes in the scene 
+function setCamera(objectSize){
+    // scene.background = new THREE.Color(0xfffff0);
+    scene.background = new THREE.Color(0x000000);
+    camera.lookAt(new THREE.Vector3(0,0,0));
+    let x,y,z;
 
-//var dirLight = new THREE.DirectionalLight( 0x00ff00, 0.54 );
-//    dirLight.position.set( -8, 12, 8 );
-//    dirLight.castShadow = true;
-//    dirLight.shadow.mapSize = new THREE.Vector2(1024, 1024);
-// Add directional Light to scene    
-//    scene.add( dirLight );
+    if(objectSize[0] != undefined && objectSize[1] != undefined && objectSize[1] != undefined){
+        x = objectSize[0];
+        y = objectSize[1];
+        z = objectSize[2];
+    } else {
+        var degree = Math.PI/180;
+        z = 120;
+        y = 120;
+        x = -45 * degree;
+    }
 
-
+    camera.position.set(y, x, z+x+y);
+    const light = new THREE.PointLight();
+    light.position.set(0, 0, z+x+y);
+    light.position.set(0, 0, -z);
+    scene.add(light);
+    const ambientLight = new THREE.AmbientLight();
+    scene.add(ambientLight);
+	cameraTarget = new THREE.Vector3( 0, 0, 0 );
+}
 
 // Draw scene
 var render = function () {
-
-	//var timer = Date.now() * 0.0005;
-
-	//camera.position.x = Math.cos( timer ) * 3;
-	//camera.position.z = Math.sin( timer ) * 3;
-
 	camera.lookAt( cameraTarget );
     renderer.render(scene, camera);
 };
 
-// Run game loop (render,repeat)
-var GameLoop = function () {
-   
-    requestAnimationFrame(GameLoop);
-    render();
-
-
-};
-
-
 function onWindowResize() {
-
 camera.aspect = window.innerWidth / window.innerHeight;
 camera.updateProjectionMatrix();
 renderer.setSize( window.innerWidth, window.innerHeight );
-
 }
 
+function addShadowedLight( x, y, z, color, intensity ) {``
+    var directionalLight = new THREE.DirectionalLight( color, intensity );
+	directionalLight.position.set( x, y, z );
+    scene.add( directionalLight );
+    directionalLight.castShadow = true;
 
+    var d = 1;
+    directionalLight.shadow.camera.left = - d;
+    directionalLight.shadow.camera.right = d;
+    directionalLight.shadow.camera.top = d;
+    directionalLight.shadow.camera.bottom = - d;
 
-function addShadowedLight( x, y, z, color, intensity ) {
-
-				var directionalLight = new THREE.DirectionalLight( color, intensity );
-				directionalLight.position.set( x, y, z );
-				scene.add( directionalLight );
-
-				directionalLight.castShadow = true;
-
-				var d = 1;
-				directionalLight.shadow.camera.left = - d;
-				directionalLight.shadow.camera.right = d;
-				directionalLight.shadow.camera.top = d;
-				directionalLight.shadow.camera.bottom = - d;
-
-				directionalLight.shadow.camera.near = 1;
-				directionalLight.shadow.camera.far = 4;
-
-				directionalLight.shadow.bias = - 0.002;
-
-			}
-
-function getMaterial(type, color) {
-	var selectedMaterial;
-	var materialOptions = {
-		color: color === undefined ? 'rgb(255, 255, 255)' : color,
-	};
-
-	switch (type) {
-		case 'basic':
-			selectedMaterial = new THREE.MeshBasicMaterial(materialOptions);
-			break;
-		case 'lambert':
-			selectedMaterial = new THREE.MeshLambertMaterial(materialOptions);
-			break;
-		case 'phong':
-			selectedMaterial = new THREE.MeshPhongMaterial(materialOptions);
-			break;
-		case 'standard':
-			selectedMaterial = new THREE.MeshStandardMaterial(materialOptions);
-			break;
-		default: 
-			selectedMaterial = new THREE.MeshBasicMaterial(materialOptions);
-			break;
-	}
-
-	return selectedMaterial;
+    directionalLight.shadow.camera.near = 1;
+    directionalLight.shadow.camera.far = 4;
+    directionalLight.shadow.bias = - 0.002;
 }
 
+animate()
 
-
-GameLoop();
-
+//recursive function to update scene continuously
+function animate() {
+    requestAnimationFrame(animate)
+    controls.update()
+    renderer.render(scene, camera)
+}
 
 });
