@@ -14,7 +14,7 @@ var camera = new THREE.PerspectiveCamera(
 	50, 
 	window.innerWidth / window.innerHeight, 
 	0.1, 
-	2000
+	5000
 );
 
 cameraTarget = new THREE.Vector3( 0, 0, 0 );
@@ -71,6 +71,11 @@ switch(extension) {
         var gltfLoader = new THREE.GLTFLoader();
         gltfLoader.setDRACOLoader( dracoLoader );
 		gltfLoader.load( url, function (gltf) {
+            gltf.scene.traverse( function(child){
+                if(child.isMesh){
+                    child.material = absMaterial;
+                }
+            });
 			scene.add( gltf.scene );
 		    boxSize = getBoxSize(gltf.scene);
             setCamera(boxSize);
@@ -84,8 +89,13 @@ switch(extension) {
         break;
 
     case 'fbx':
-       var fbxLoader = new THREE.FBXLoader( );
-       fbxLoader.load( url, function ( fbx ) {
+        var fbxLoader = new THREE.FBXLoader( );
+        fbxLoader.load( url, function ( fbx ) {
+            fbx.traverse( function(child){
+                if(child.isMesh){
+                    child.material = absMaterial;
+                }
+            });
             scene.add(fbx);
 		    boxSize = getBoxSize(fbx);
 		    setCamera(boxSize);
@@ -101,6 +111,11 @@ switch(extension) {
     case 'obj':
         var objLoader = new THREE.OBJLoader( );
         objLoader.load( url, function (object) {
+            object.traverse( function(child){
+                if(child.isMesh){
+                    child.material = absMaterial;
+                }
+            });
             scene.add( object );
             boxSize = getBoxSize(object);
             setCamera(boxSize);
@@ -160,12 +175,6 @@ function setCamera(objectSize){
 	cameraTarget = new THREE.Vector3( 0, 0, 0 );
 }
 
-// Draw scene
-var render = function () {
-	camera.lookAt( cameraTarget );
-    renderer.render(scene, camera);
-};
-
 function onWindowResize() {
 camera.aspect = window.innerWidth / window.innerHeight;
 camera.updateProjectionMatrix();
@@ -183,7 +192,6 @@ function addShadowedLight( x, y, z, color, intensity ) {
     directionalLight.shadow.camera.right = d;
     directionalLight.shadow.camera.top = d;
     directionalLight.shadow.camera.bottom = - d;
-
     directionalLight.shadow.camera.near = 1;
     directionalLight.shadow.camera.far = 4;
     directionalLight.shadow.bias = - 0.002;
