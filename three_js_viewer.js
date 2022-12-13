@@ -7,7 +7,7 @@ url = urlParams.get('file');
 container = document.createElement( 'div' );
 document.body.appendChild( container );
 
-// Setup
+// Scene setup 
 var scene = new THREE.Scene();
 
 var camera = new THREE.PerspectiveCamera(
@@ -16,8 +16,6 @@ var camera = new THREE.PerspectiveCamera(
 	0.1, 
 	5000
 );
-
-cameraTarget = new THREE.Vector3( 0, 0, 0 );
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.shadowMap.enabled = true;
@@ -30,10 +28,10 @@ container.appendChild( renderer.domElement );
 //resize view as user change windows size
 window.addEventListener('resize', onWindowResize, false)
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight
-    camera.updateProjectionMatrix()
-    renderer.setSize(window.innerWidth, window.innerHeight)
-    renderer.render(scene, camera)
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.render(scene, camera);
 }
 
 // Adding controls
@@ -50,11 +48,7 @@ switch(extension) {
         var stlLoader = new THREE.STLLoader();
         stlLoader.load( url, function ( geometry ) {
             var mesh = new THREE.Mesh( geometry, absMaterial);
-            scene.add( mesh );
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-			boxSize = getBoxSize(mesh);
-            setCamera(boxSize);
+            renderObject(mesh);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -73,12 +67,10 @@ switch(extension) {
 		gltfLoader.load( url, function (gltf) {
             gltf.scene.traverse( function(child){
                 if(child.isMesh){
-                    child.material = absMaterial;
+                    materialConfig(child)
                 }
             });
-			scene.add( gltf.scene );
-		    boxSize = getBoxSize(gltf.scene);
-            setCamera(boxSize);
+            renderObject(gltf.scene);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -93,12 +85,11 @@ switch(extension) {
         fbxLoader.load( url, function ( fbx ) {
             fbx.traverse( function(child){
                 if(child.isMesh){
-                    child.material = absMaterial;
+                    materialConfig(child)
                 }
             });
-            scene.add(fbx);
-		    boxSize = getBoxSize(fbx);
-		    setCamera(boxSize);
+
+            renderObject(fbx);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -110,15 +101,14 @@ switch(extension) {
 
     case 'obj':
         var objLoader = new THREE.OBJLoader( );
-        objLoader.load( url, function (object) {
-            object.traverse( function(child){
+        objLoader.load( url, function (obj) {
+            obj.traverse( function(child){
                 if(child.isMesh){
-                    child.material = absMaterial;
+                    materialConfig(child)
                 }
             });
-            scene.add( object );
-            boxSize = getBoxSize(object);
-            setCamera(boxSize);
+
+            renderObject(obj);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -132,14 +122,21 @@ switch(extension) {
         alert("Unsupported file type " + extension);
 }
 
-// Add lights
-var hemiLight = new THREE.HemisphereLight( 0x443333, 0x111122, 0.61 );
-hemiLight.position.set( 0, 50, 0 );
+function materialConfig(child){
+    child.material = absMaterial;
+    child.shadow = true;
+    child.castShadow = true;
+    child.receiveShadow = true;
+}
 
-// Add hemisphere light to scene   
-scene.add( hemiLight );
-addShadowedLight( 1, -1, 1, 0xffaa00, 1.35 );
-addShadowedLight( 1, 1, - 1, 0xffaa00, 1 );
+function renderObject(object){
+    scene.add(object);
+    object.position.set(0, 0, 0);
+    object.castShadow = true;
+    object.receiveShadow = true;
+    boxSize = getBoxSize(object);
+    setCamera(boxSize);
+}
 
 function getBoxSize(object){
     let boundingBox = new THREE.Box3().setFromObject( object );
@@ -148,7 +145,7 @@ function getBoxSize(object){
     return [Math.round(boxSize.x),Math.round(boxSize.y),Math.round(boxSize.z)];
 }
 
-// Set background color, verify size of object, set camera position, ambient light and insert axes in the scene 
+//Set background color, verify size of object, set camera position, ambient
 function setCamera(objectSize){
     scene.background = new THREE.Color(0xfffff0);
     camera.lookAt(new THREE.Vector3(0,0,0));
@@ -166,10 +163,19 @@ function setCamera(objectSize){
     }
 
     camera.position.set(y, x, z+x+y);
-    const light = new THREE.PointLight();
-    light.position.set(0, 0, z+x+y);
-    light.position.set(0, 0, -z);
-    scene.add(light);
+
+    // Add lights
+    var hemiLight = new THREE.HemisphereLight( 0x443333, 0x111122, 0.61 );
+    hemiLight.position.set( 0, 50, 0 );
+    scene.add( hemiLight );
+    addShadowedLight( 1, -1,  1, 0xffaa00, 1.35 );
+    addShadowedLight( 1,  1, -1, 0xffaa00, 1 );
+    const light1 = new THREE.PointLight();
+    const light2 = new THREE.PointLight();
+    light1.position.set(0, 0, z+x+y);
+    light2.position.set(0, 0, -z-x-y);
+    scene.add(light1);
+    scene.add(light2);
     const ambientLight = new THREE.AmbientLight();
     scene.add(ambientLight);
 	cameraTarget = new THREE.Vector3( 0, 0, 0 );
@@ -197,9 +203,8 @@ function addShadowedLight( x, y, z, color, intensity ) {
     directionalLight.shadow.bias = - 0.002;
 }
 
-animate()
-
 //recursive function to update scene continuously
+animate()
 function animate() {
     requestAnimationFrame(animate)
     controls.update()
