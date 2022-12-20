@@ -1,8 +1,9 @@
 $(document).ready(function () {
 
 const QueryString = window.location.search; 
-const urlParams = new URLSearchParams(QueryString); 
+const urlParams = new URLSearchParams(QueryString);
 url = urlParams.get('file');
+urlMat = urlParams.get('material');
 
 container = document.createElement( 'div' );
 document.body.appendChild( container );
@@ -18,10 +19,10 @@ var camera = new THREE.PerspectiveCamera(
 );
 
 var renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.setPixelRatio(window.devicePixelRatio); 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 container.appendChild( renderer.domElement );
 
@@ -34,14 +35,22 @@ function onWindowResize() {
     renderer.render(scene, camera);
 }
 
-// Adding controls
-const controls = new THREE.OrbitControls(camera, renderer.domElement)
-controls.enableDamping = true
-controls.target.set(0, 0, 0)
+
+// Add controls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0, 0);
 
 var extension = url.split( '.' ).pop().toLowerCase();
-var boxSize = new Array()
-const absMaterial = new THREE.MeshNormalMaterial
+var boxSize = new Array();
+const absMaterial = new THREE.MeshPhongMaterial({ 
+    color: 0x1111111, 
+    wireframe: false, 
+    flatShading: false, 
+    transparent: true,
+});
+
+var isCustomMaterial = false;
 
 switch(extension) {
     case 'stl':
@@ -49,6 +58,7 @@ switch(extension) {
         stlLoader.load( url, function ( geometry ) {
             var mesh = new THREE.Mesh( geometry, absMaterial);
             renderObject(mesh);
+            guiInitializer(absMaterial, mesh);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -58,19 +68,32 @@ switch(extension) {
         });
         break;
 
+    case 'ply':
+        const plyLoader = new THREE.PLYLoader();
+        plyLoader.load( url, function ( ply ) {
+            ply.computeVertexNormals()
+            const mesh = new THREE.Mesh(ply, absMaterial)
+            renderObject(mesh);
+            guiInitializer(absMaterial, mesh);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+            console.log(error)
+        } ); 
+        break;
+
     case 'glb':
     case 'gltf':
         var dracoLoader = new THREE.DRACOLoader();
-        dracoLoader.setDecoderPath('/lib/js/draco/')
+        dracoLoader.setDecoderPath('/lib/three/examples/js/libs/draco/')
         var gltfLoader = new THREE.GLTFLoader();
         gltfLoader.setDRACOLoader( dracoLoader );
 		gltfLoader.load( url, function (gltf) {
-            gltf.scene.traverse( function(child){
-                if(child.isMesh){
-                    materialConfig(child)
-                }
-            });
+            materialConfig(gltf.scene);
             renderObject(gltf.scene);
+            guiInitializer(absMaterial, gltf.scene);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -79,17 +102,13 @@ switch(extension) {
             console.log(error)
         } );
         break;
-
+    
     case 'fbx':
         var fbxLoader = new THREE.FBXLoader( );
         fbxLoader.load( url, function ( fbx ) {
-            fbx.traverse( function(child){
-                if(child.isMesh){
-                    materialConfig(child)
-                }
-            });
-
+            materialConfig(fbx);
             renderObject(fbx);
+            guiInitializer(absMaterial, fbx);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -100,15 +119,58 @@ switch(extension) {
         break;
 
     case 'obj':
-        var objLoader = new THREE.OBJLoader( );
-        objLoader.load( url, function (obj) {
-            obj.traverse( function(child){
-                if(child.isMesh){
-                    materialConfig(child)
+        if(urlMat == null)
+        {
+            var objLoader = new THREE.OBJLoader( );
+            objLoader.load( url, function (obj) {
+                materialConfig(obj);
+                renderObject(obj);
+                guiInitializer(absMaterial, obj);
+            },
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+            },
+            (error) => {
+                console.log(error);
+            } );
+        } else {
+            const mtlLoader = new THREE.MTLLoader();
+            mtlLoader.load(
+                urlMat,
+                (materials) => {
+                    materials.preload();
+                    const objLoader = new THREE.OBJLoader();
+                    objLoader.setMaterials(materials);
+                    objLoader.load(
+                        url,
+                        (objMTL) => {
+                            renderObject(objMTL);
+                            guiInitializer(absMaterial, objMTL);
+                        },
+                        (xhr) => {
+                            console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+                        },
+                        (error) => {
+                            console.log(error);
+                        }
+                    )
+                },
+                (xhr) => {
+                    console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+                },
+                (error) => {
+                    console.log(error);
                 }
-            });
+            );
+        }
+        break;
 
-            renderObject(obj);
+    case 'dae':
+        const colladaL = new THREE.ColladaLoader();
+        colladaL.load( url, function(dae){
+            materialConfig(dae.scene);
+            renderObject(dae.scene);
+            guiInitializer(absMaterial, dae.scene);
         },
         (xhr) => {
             console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
@@ -116,17 +178,69 @@ switch(extension) {
         (error) => {
             console.log(error)
         } );
+        
         break;
 
     default:
-        alert("Unsupported file type " + extension);
+        alert("Unsupported file type: " + extension);
 }
 
-function materialConfig(child){
-    child.material = absMaterial;
-    child.shadow = true;
-    child.castShadow = true;
-    child.receiveShadow = true;
+function guiInitializer(material, object){
+
+    const options = { 
+        wireframe: false,
+        object: 0x1111111,
+        background: 0xfffff0,
+        lights: true,
+        transparent: true,
+    }
+    const gui = new dat.GUI();
+
+    const materialFolder = gui.addFolder('Material Control');
+    materialFolder.add(material, 'transparent').onChange(() => material.needsUpdate = true);
+    materialFolder.add(material, 'opacity', 0, 1, 0.01);
+    materialFolder.add(material, 'wireframe').onChange(() => material.needsUpdate = true);
+    materialFolder.add(material, 'flatShading').onChange(() => material.needsUpdate = true);
+    materialFolder.add(object, 'visible');
+    // materialFolder.open();
+
+    const cameraFolder = gui.addFolder('Camera Control');
+    cameraFolder.add(object.rotation, 'x', 0, Math.PI * 2);
+    cameraFolder.add(object.rotation, 'y', 0, Math.PI * 2);
+    cameraFolder.add(object.rotation, 'z', 0, Math.PI * 2);
+    // cameraFolder.open();
+
+    const colorFolder = gui.addFolder('Color Control');
+    colorFolder.addColor(options, 'background').onChange( col => {
+        scene.background = new THREE.Color(col);
+    });
+    colorFolder.addColor(options, 'object').onChange( col => {
+        isCustomMaterial = true;
+        absMaterial.color = new THREE.Color(col);
+        if(['fbx', 'glb', 'gltf', 'obj', 'dae' ].includes(extension)) {
+            object.traverse( function(child){
+                if(child.isMesh){
+                    materialConfig(child);
+                }
+            });
+        }
+    });
+    // colorFolder.open();
+    gui.close();
+
+}
+
+function materialConfig(object){
+    object.traverse( function(child){
+        if(child.isMesh){
+            if(isCustomMaterial == true){
+                child.material = absMaterial;
+            }
+            child.shadow = true;
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
 }
 
 function renderObject(object){
@@ -145,7 +259,6 @@ function getBoxSize(object){
     return [Math.round(boxSize.x),Math.round(boxSize.y),Math.round(boxSize.z)];
 }
 
-//Set background color, verify size of object, set camera position, ambient
 function setCamera(objectSize){
     scene.background = new THREE.Color(0xfffff0);
     camera.lookAt(new THREE.Vector3(0,0,0));

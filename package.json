@@ -20,6 +20,8 @@
   },
   "homepage": "https://github.com/Digital-Repository-of-Ireland/dri-3d-js#readme",
   "dependencies": {
-    "three": "^0.147.0"
+    "dat.gui": "^0.7.9",
+    "three": "^0.147.0",
+    "three-dat.gui": "^2.0.7"
   }
 }

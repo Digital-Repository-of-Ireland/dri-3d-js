@@ -12,6 +12,8 @@ To run, copy the files to your webserver and open the index.html file.
 
 Pass in a 3D data file in a url parameter named file.
 
-E.g. http://127.0.0.1:8080/index.html?file=data/my3dmodel.stl
+E.g. http://127.0.0.1:8080/index.html?file=my3dmodel.stl
 
+Supported formats: FBX (7.4, ASCII, Binary), STL, GBL, GLTF, OBJ and PLY.
 
+NOT supported FBX v6.1
