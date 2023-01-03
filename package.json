@@ -1,0 +1,27 @@
+{
+  "name": "dri-3d",
+  "version": "1.0.0",
+  "description": "This repository contains a lightweight version of the JavaScript 3D viewer from the [DRI Repository appliation](https://github.com/Digital-Repository-of-Ireland/dri-app) and [DRI 3D Viewer](https://github.com/Digital-Repository-of-Ireland/DRI-3DViewer).",
+  "main": "three_js_viewer.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Digital-Repository-of-Ireland/dri-3d-js.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Digital-Repository-of-Ireland/dri-3d-js/issues"
+  },
+  "homepage": "https://github.com/Digital-Repository-of-Ireland/dri-3d-js#readme",
+  "dependencies": {
+    "dat.gui": "^0.7.9",
+    "three": "^0.147.0",
+    "three-dat.gui": "^2.0.7"
+  }
+}
